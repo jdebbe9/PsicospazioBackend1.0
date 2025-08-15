@@ -1,10 +1,21 @@
+// routes/appointmentRoutes.js
 const express = require('express');
 const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
 const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 
-router.post('/', requireAuth, requireRole('patient'), appointmentController.bookAppointment);
-router.get('/', requireAuth, appointmentController.getMyAppointments);
-router.put('/:id', requireAuth, requireRole('therapist'), appointmentController.updateAppointment);
+// Tutte le rotte richiedono autenticazione
+router.use(requireAuth);
+
+// Crea appuntamento (solo paziente)
+router.post('/', requireRole('patient'), appointmentController.bookAppointment);
+
+// Lista appuntamenti dell’utente loggato (paziente o terapeuta)
+router.get('/', appointmentController.getMyAppointments);
+
+// Aggiorna stato/note (terapeuta owner può confermare/cancellare; paziente owner può cancellare)
+// Usiamo PATCH perché è un update parziale
+router.patch('/:id', appointmentController.updateAppointment);
 
 module.exports = router;
+

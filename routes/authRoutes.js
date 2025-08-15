@@ -1,54 +1,43 @@
 // routes/authRoutes.js
 const express = require('express');
-const rateLimit = require('express-rate-limit');
-const cookieParser = require('cookie-parser');
-const authController = require('../controllers/authController');
-const jwt = require('jsonwebtoken');
+const path = require('path');
+const authController = require(path.resolve(__dirname, '..', 'controllers', 'authController.js'));
+const { requireAuth } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// rate limiter per login / register
-const limiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minuti
-  max: 5, // max 5 richieste per IP
-  message: { message: 'Troppi tentativi, riprova dopo qualche minuto' }
-});
+// ── Rate limit opzionale (evita crash se il pacchetto manca)
+let limiter = null;
+try {
+  const rateLimit = require('express-rate-limit');
+  limiter = rateLimit({
+    windowMs: 5 * 60 * 1000,       // 5 minuti
+    max: 5,                        // max 5 tentativi/IP
+    message: { message: 'Troppi tentativi, riprova fra qualche minuto' }
+  });
+} catch {
+  // Se non hai installato express-rate-limit, semplicemente non usiamo il limiter.
+  // Per abilitarlo: npm i express-rate-limit
+}
 
-router.use(cookieParser());
+// ── ROUTES AUTH ──────────────────────────────────────────────────────────────
+// NB: manteniamo '/register' (se preferisci '/signup', cambia qui e nei test)
+if (limiter) {
+  router.post('/register', limiter, authController.register);
+  router.post('/login',    limiter, authController.login);
+} else {
+  router.post('/register', authController.register);
+  router.post('/login',    authController.login);
+}
 
-// middleware di protezione
-const requireAuth = (req, res, next) => {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-  const token = auth.split(' ')[1];
-  try {
-    const payload = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    req.user = { id: payload.userId, role: payload.role };
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Token invalido o scaduto' });
-  }
-};
-
-const requireRole = (role) => (req, res, next) => {
-  if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
-  if (req.user.role !== role) return res.status(403).json({ message: 'Forbidden' });
-  next();
-};
-
-// Routes
-router.post('/register', limiter, authController.register);
-router.post('/login', limiter, authController.login);
 router.post('/refresh', authController.refresh);
-router.post('/logout', authController.logout);
-router.get('/me', requireAuth, authController.me);                //definisce all'utente chi è dopo il login
+router.post('/logout',  authController.logout);
 
-// esempio: route protetta per terapeuta
-// router.get('/therapist-only', requireAuth, requireRole('therapist'), (req, res) => {
-//   res.json({ secret: 'solo terapeuti' });
-// });
+// Rotta protetta: richiede Authorization: Bearer <accessToken>
+router.get('/me', requireAuth, authController.me);
 
 module.exports = router;
+
 
 
 

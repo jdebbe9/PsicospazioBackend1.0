@@ -1,41 +1,60 @@
+require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
-const connectDB = require('./config/db'); // importa funzione di connessione DB
+const connectDB = require('./config/db'); // <— usa il wrapper che abbiamo creato
 
-// Carica le variabili d'ambiente
-dotenv.config();
+// middleware comuni (404/error) presi da authMiddleware
+const { notFound, errorHandler } = require('./middleware/authMiddleware');
 
-// Connessione al database MongoDB Atlas
-connectDB();
+// ROUTES
+const authRoutes          = require('./routes/authRoutes');
+const appointmentRoutes   = require('./routes/appointmentRoutes');
+const diaryRoutes         = require('./routes/diaryRoutes');
+const questionnaireRoutes = require('./routes/questionnaireRoutes');
+const therapistRoutes     = require('./routes/therapistRoutes');
 
 const app = express();
 
-// Middleware
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json()); // per leggere JSON nel body
+// Sicurezza & parsing
+app.use(helmet());
+
+// CORS: abilita richieste dalla SPA e invio cookie (refresh)
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+
+app.use(express.json());
 app.use(cookieParser());
 
-// Rotte API
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
+// In produzione, abilita trust proxy per cookie "secure" dietro proxy (es. Render/Heroku)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 
-// Rotte placeholder per gli altri moduli (li aggiungeremo dopo)
-app.use('/api/appointments', (req, res) => res.send('Appuntamenti'));
-app.use('/api/questionnaire', (req, res) => res.send('Questionario'));
-app.use('/api/diary', (req, res) => res.send('Diario'));
-app.use('/api/therapist', (req, res) => res.send('Terapeuta'));
+// Healthcheck
+app.get('/api/health', (_req, res) => res.json({ status: 'OK' }));
 
-// Error handling base
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Qualcosa è andato storto!' });
-});
+// Mount endpoints
+app.use('/api/auth',          authRoutes);
+app.use('/api/appointments',  appointmentRoutes);
+app.use('/api/diary',         diaryRoutes);
+app.use('/api/questionnaire', questionnaireRoutes);
+app.use('/api/therapists',    therapistRoutes);
 
-// Avvio del server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server avviato sulla porta ${PORT}`);
-});
+// 404 ed errori centralizzati (sempre in coda)
+app.use(notFound);
+app.use(errorHandler);
+
+// Avvio
+(async () => {
+  try {
+    await connectDB(); // legge MONGO_URI / MONGODB_URI da .env
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`🚀 Server avviato su http://localhost:${PORT}`));
+  } catch (err) {
+    // connectDB ha già loggato l’errore
+    process.exit(1);
+  }
+})();
 

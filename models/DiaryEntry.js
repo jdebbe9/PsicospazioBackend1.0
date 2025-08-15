@@ -1,19 +1,25 @@
 const mongoose = require('mongoose');
 
-const diaryEntrySchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const DiaryEntrySchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    content: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5000
+    }
+    // niente "date": usiamo createdAt fornito da timestamps
   },
-  content: {
-    type: String,
-    required: true
-  },
-  date: {
-    type: Date,
-    default: Date.now
-  }
-}, { timestamps: true });
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('DiaryEntry', diaryEntrySchema);
+// Query tipica: entry di un utente, più recenti prima
+DiaryEntrySchema.index({ user: 1, createdAt: -1 });
+
+module.exports = mongoose.model('DiaryEntry', DiaryEntrySchema);
+

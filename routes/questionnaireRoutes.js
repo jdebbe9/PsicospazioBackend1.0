@@ -1,9 +1,18 @@
+// routes/questionnaireRoutes.js
 const express = require('express');
 const router = express.Router();
 const questionnaireController = require('../controllers/questionnaireController');
-const { requireAuth, requireRole } = require('../middleware/authMiddleware');
+const { requireAuth, requireRole, wrapAsync } = require('../middleware/authMiddleware');
 
-router.post('/', requireAuth, requireRole('patient'), questionnaireController.submitQuestionnaire);
-router.get('/', requireAuth, requireRole('patient'), questionnaireController.getMyQuestionnaire);
+// Tutte le route del questionario: solo per PAZIENTI autenticati
+router.use(requireAuth);
+router.use(requireRole('patient'));
+
+// Invia il questionario iniziale
+router.post('/', wrapAsync(questionnaireController.submitQuestionnaire));
+
+// Recupera il MIO questionario (path esplicito /me)
+router.get('/me', wrapAsync(questionnaireController.getMyQuestionnaire));
 
 module.exports = router;
+

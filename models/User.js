@@ -1,47 +1,33 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true
-  },
-  passwordHash: {
-    type: String,
-    required: true
-  },
-  role: {
-    type: String,
-    enum: ['patient', 'therapist'],
-    default: 'patient'
-  },
-  questionnaireDone: {
-    type: Boolean,
-    default: false
-  },
-  consentGivenAt: {
-    type: Date,
-    required: true
-  },
-  currentRefreshToken: {
-    type: String, // hash del refresh token
-    default: null
-  }
-}, { timestamps: true });
+const userSchema = new mongoose.Schema(
+  {
+    email:            { type: String, required: true, unique: true, lowercase: true, trim: true },
+    passwordHash:     { type: String, required: true },
+    role:             { type: String, enum: ['patient', 'therapist'], default: 'patient' },
+    questionnaireDone:{ type: Boolean, default: false },
+    consentGivenAt:   { type: Date, required: true },
 
-// metodo per salvare (hashare) il refresh token
-userSchema.methods.setRefreshToken = async function (refreshToken) {
-  this.currentRefreshToken = await bcrypt.hash(refreshToken, 10);
-  await this.save();
+    // 🔒 Hash del refresh token (rotabile). Niente token in chiaro nel DB.
+    refreshTokenHash: { type: String, default: null }
+  },
+  { timestamps: true }
+);
+
+// Indice esplicito oltre a unique
+userSchema.index({ email: 1 }, { unique: true });
+
+// Salva SOLO l'hash del refresh token (non fa .save(); ci pensano i controller)
+userSchema.methods.setRefreshToken = async function (plainToken) {
+  this.refreshTokenHash = await bcrypt.hash(plainToken, 10);
 };
 
-// verifica se il refresh token inviato corrisponde all'hash salvato
-userSchema.methods.isRefreshTokenValid = async function (token) {
-  if (!this.currentRefreshToken) return false;
-  return bcrypt.compare(token, this.currentRefreshToken);
+// Verifica se il refresh token in chiaro corrisponde all'hash salvato
+userSchema.methods.isRefreshTokenValid = async function (plainToken) {
+  if (!this.refreshTokenHash) return false;
+  return bcrypt.compare(plainToken, this.refreshTokenHash);
 };
 
 module.exports = mongoose.model('User', userSchema);
+
