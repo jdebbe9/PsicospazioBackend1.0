@@ -18,8 +18,6 @@ const DiaryEntrySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Query tipica: entry di un utente, più recenti prima
-DiaryEntrySchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('DiaryEntry', DiaryEntrySchema);
 

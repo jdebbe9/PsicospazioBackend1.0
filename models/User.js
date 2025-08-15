@@ -15,8 +15,6 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indice esplicito oltre a unique
-userSchema.index({ email: 1 }, { unique: true });
 
 // Salva SOLO l'hash del refresh token (non fa .save(); ci pensano i controller)
 userSchema.methods.setRefreshToken = async function (plainToken) {

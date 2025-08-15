@@ -18,8 +18,6 @@ const QuestionnaireResponseSchema = new mongoose.Schema(
   { timestamps: true }  // usa createdAt/updatedAt invece di submittedAt
 );
 
-// ridondante ma esplicito: indice univoco
-QuestionnaireResponseSchema.index({ user: 1 }, { unique: true });
 
 module.exports = mongoose.model('QuestionnaireResponse', QuestionnaireResponseSchema);
 
